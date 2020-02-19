@@ -1,20 +1,21 @@
 import datetime
 import requests
 
+from opint_framework.core.scheduler import BaseAgent
 from opint_framework.core.dataproviders import HDFSLoader
-from opint_framework.apps.data_management.utils.tools import get_hostname
+from opint_framework.apps.data_management.utils.tools import parse_date, get_hostname
+from opint_framework.apps.data_management.utils.register import register_transfer_issue
 
 
-class FTSLoader(HDFSLoader):
+class FTSLoader(HDFSLoader, BaseAgent):
     help = 'Runs the HDFS fetching job'
     base_path = '/project/monitoring/archive/fts/raw/complete'
 
     def construct_path_for_date(self, date):
-        b_path = self.base_path + F'/{date.year}/{date.month:02d}/{date.day:02d}'
-        return b_path + '/' if date != datetime.datetime.now().date() else b_path + '.tmp/'
+        return self.base_path + F'/{date.year}/{date.month:02d}/{date.day:02d}/'
 
     @classmethod
-    def resolve_issues(cls, df):
+    def resolve_issues(self, df):
         issues = df.filter(df.data.t_final_transfer_state_flag == 0) \
             .groupby(df.data.t__error_message.alias('t__error_message'),
                      df.data.src_hostname.alias('src_hostname'),
@@ -40,8 +41,8 @@ class FTSLoader(HDFSLoader):
         return objs
 
     @classmethod
-    def resolve_sites(cls, issues):
-        cric_url = "http://wlcg-cric.cern.ch/api/core/service/query/?json&type=SE&groupby=rcsite"
+    def resolve_sites(self, issues):
+        cric_url = "http://wlcg-cric.cern.ch/api/core/service/query/?json&type=SE"
         r = requests.get(url=cric_url).json()
         site_protocols = {}
         for site, info in r.items():
@@ -58,19 +59,20 @@ class FTSLoader(HDFSLoader):
         return issues
 
     @classmethod
-    def translate_data(cls, data, **kwargs):
+    def translate_data(self, data, **kwargs):
         """
         Translates the data from the source format to any desired format.
         Can be overwritten by parent.
 
         :return: (data translated to desired format)
         """
-        data = cls.resolve_issues(data)
-        data = cls.resolve_sites(data)
+        data = self.resolve_issues(data)
+        data = self.resolve_sites(data)
         return data
 
-    def register_data(self):
-        now = datetime.datetime.now().date()
+    def processCycle(self):
+        now = datetime.datetime.now()
         path = self.construct_path_for_date(now)
         data = self.load_data(type='JSON', spark_master='local[*]', spark_name='Issues', path=path)
-        return data
+        for entry in data:
+            register_transfer_issue(entry)
