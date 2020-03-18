@@ -37,13 +37,13 @@ DATABASES = {
         'HOST': 'localhost',
         'PORT': '10011',
         'NAME': 'adcr.cern.ch',
-        'USER': DB_JOBS_USER, # Defined in private settings
-        'PASSWORD': DB_JOBS_PASS # Defined in private settings
+        'USER': 'DB_JOBS_USER', # Defined in private settings
+        'PASSWORD': 'DB_JOBS_PASS' # Defined in private settings
     },
     'jobs_buster_persistency': {
         'ENGINE': 'django.db.backends.oracle',
         'NAME': 'localhost:10015/int8r.cern.ch',
-        'USER': DB_PERS_USER,
-        'PASSWORD': DB_PERS_PASS
+        'USER': 'DB_PERS_USER',
+        'PASSWORD': 'DB_PERS_PASS'
     }
 }
